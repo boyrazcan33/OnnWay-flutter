@@ -1,0 +1,60 @@
+name: onnway_flutter
+description: "OnnWay Route Optimizer - Flutter Implementation for Thesis Research"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Models & JSON
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.8.1
+
+  # HTTP Client
+  dio: ^5.4.0
+
+  # Maps (OpenStreetMap - Best practice for Flutter)
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
+  # Location Services
+  geolocator: ^11.0.0
+  permission_handler: ^11.3.0
+
+  # UI & Images
+  cached_network_image: ^3.3.0
+
+  # Utils
+  url_launcher: ^6.2.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Code Generation
+  build_runner: ^2.4.8
+  freezed: ^2.4.7
+  json_serializable: ^6.7.1
+
+  # Testing
+  integration_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+
+  # Linting
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+
+  # Assets
+  assets:
+    - assets/images/
