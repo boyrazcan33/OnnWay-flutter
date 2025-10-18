@@ -1,26 +1,29 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'app.dart';
+import 'ui/theme/theme.dart';
 
 void main() {
-  runApp(const OnnWayApp());
+  runApp(
+    const ProviderScope(
+      child: OnnWayFlutterApp(),
+    ),
+  );
 }
 
-class OnnWayApp extends StatelessWidget {
-  const OnnWayApp({super.key});
+class OnnWayFlutterApp extends StatelessWidget {
+  const OnnWayFlutterApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'OnnWay Flutter',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: appTheme,
       home: const Scaffold(
-        body: Center(
-          child: Text(
-            '🗺️ OnnWay - Flutter',
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-          ),
+        body: SafeArea(
+          child: OnnWayApp(),
         ),
       ),
     );

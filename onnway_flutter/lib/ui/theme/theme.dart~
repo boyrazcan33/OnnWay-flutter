@@ -54,11 +54,11 @@ final appTheme = ThemeData(
     ),
   ),
 
-  // Card theme - DÜZELTME
-  cardTheme: const CardThemeData(
+  // Card theme
+  cardTheme: CardTheme(
     elevation: 4,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(16)),
+      borderRadius: BorderRadius.circular(16),
     ),
   ),
 
