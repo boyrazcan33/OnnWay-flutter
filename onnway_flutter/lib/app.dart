@@ -153,9 +153,39 @@ class OnnWayApp extends ConsumerWidget {
                       isLoading: false,
                     );
                   },
-                  loading: () => CitySelectionScreen(
-                    onApply: () {},
-                    isLoading: true,
+                  loading: () => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          'assets/images/mj_moonwalk.png',
+                          width: 200,
+                          height: 200,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const CircularProgressIndicator(
+                              color: whiteColor,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Creating your route...',
+                          style: TextStyle(
+                            color: whiteColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Teaching the map to dance too...',
+                          style: TextStyle(
+                            color: whiteColor,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   error: (error, stack) => Center(
                     child: Column(

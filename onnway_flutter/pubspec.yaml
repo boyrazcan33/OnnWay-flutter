@@ -50,6 +50,9 @@ dev_dependencies:
   flutter_driver:
     sdk: flutter
 
+  # Test package - EKLE
+  test: any
+
   # Linting
   flutter_lints: ^3.0.1
 
