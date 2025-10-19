@@ -12,7 +12,7 @@ void main() {
     // Test Configuration - Native ile AYNI
     const int totalCycles = 5;
     const int scrollDurationSec = 30;
-    const int mapInteractionDurationSec = 30;
+    const int zoomDurationSec = 30;
 
     setUpAll(() async {
       driver = await FlutterDriver.connect();
@@ -26,7 +26,7 @@ void main() {
       await _log(logFile, 'FLUTTER ANIMATION FLUIDITY TEST STARTED');
       await _log(logFile, 'Total Cycles: $totalCycles');
       await _log(logFile, 'Scroll Duration: ${scrollDurationSec}s per cycle');
-      await _log(logFile, 'Map Interaction Duration: ${mapInteractionDurationSec}s per cycle');
+      await _log(logFile, 'Zoom Duration: ${zoomDurationSec}s per cycle');
       await _log(logFile, 'Device: ${Platform.operatingSystem}');
       await _log(logFile, '========================================');
     });
@@ -42,28 +42,28 @@ void main() {
     test('Animation Fluidity Under Stress', () async {
       final testStartTime = DateTime.now();
 
+      // CYCLE 1: İlk cycle için setup yap
+      await _selectRouteParameters(driver, logFile, 1);
+
       for (int cycle = 1; cycle <= totalCycles; cycle++) {
         await _log(logFile, '');
         await _log(logFile, '========== CYCLE $cycle/$totalCycles ==========');
         final cycleStartTime = DateTime.now();
 
         try {
-          // Step 1: Select route parameters
-          await _selectRouteParameters(driver, logFile, cycle);
-
-          // Step 2: Create route
+          // Step 1: Create route
           await _createRoute(driver, logFile, cycle);
 
-          // Step 3: Wait for animation to complete
+          // Step 2: Wait for animation to complete
           await _waitForAnimation(driver, logFile, cycle);
 
-          // Step 4: Scroll test (30 seconds)
+          // Step 3: Scroll test (30 seconds) - Route Steps bölgesinde
           await _scrollTest(driver, logFile, cycle, scrollDurationSec);
 
-          // Step 5: Map interaction test (30 seconds)
-          await _mapInteractionTest(driver, logFile, cycle, mapInteractionDurationSec);
+          // Step 4: Map zoom test (30 seconds) - Harita butonlarıyla
+          await _mapZoomTest(driver, logFile, cycle, zoomDurationSec);
 
-          // Step 6: Prepare next cycle
+          // Step 5: Prepare next cycle (sadece son cycle değilse)
           if (cycle < totalCycles) {
             await _prepareNextCycle(driver, logFile, cycle);
           }
@@ -105,7 +105,7 @@ Future<void> _selectRouteParameters(FlutterDriver driver, File logFile, int cycl
     await driver.waitFor(tallinnFinder, timeout: const Duration(seconds: 10));
     await driver.tap(tallinnFinder);
     await Future.delayed(const Duration(seconds: 2));
-    await _log(logFile, '[$cycle]   • Tallinn selected');
+    await _log(logFile, '[$cycle]   ✓ Tallinn selected');
 
     // Select Social Media Spots
     await driver.scrollUntilVisible(
@@ -115,8 +115,8 @@ Future<void> _selectRouteParameters(FlutterDriver driver, File logFile, int cycl
       timeout: const Duration(seconds: 10),
     );
     await driver.tap(find.text('Social Media Spots'));
-    await Future.delayed(const Duration(seconds: 1));
-    await _log(logFile, '[$cycle]   • Social Media Spots selected');
+    await Future.delayed(const Duration(milliseconds: 500));
+    await _log(logFile, '[$cycle]   ✓ Social Media Spots selected');
 
     // Select Mid Range
     await driver.scrollUntilVisible(
@@ -126,10 +126,10 @@ Future<void> _selectRouteParameters(FlutterDriver driver, File logFile, int cycl
       timeout: const Duration(seconds: 10),
     );
     await driver.tap(find.text('Mid Range'));
-    await Future.delayed(const Duration(seconds: 1));
-    await _log(logFile, '[$cycle]   • Mid Range selected');
+    await Future.delayed(const Duration(milliseconds: 500));
+    await _log(logFile, '[$cycle]   ✓ Mid Range selected');
 
-    // Select Medium
+    // Select Medium (1 day)
     await driver.scrollUntilVisible(
       find.byType('SingleChildScrollView'),
       find.text('Medium (1 day)'),
@@ -137,8 +137,8 @@ Future<void> _selectRouteParameters(FlutterDriver driver, File logFile, int cycl
       timeout: const Duration(seconds: 10),
     );
     await driver.tap(find.text('Medium (1 day)'));
-    await Future.delayed(const Duration(seconds: 1));
-    await _log(logFile, '[$cycle]   • Medium (1 day) selected');
+    await Future.delayed(const Duration(milliseconds: 500));
+    await _log(logFile, '[$cycle]   ✓ Medium (1 day) selected');
 
     await _log(logFile, '[$cycle] ✓ Parameters selected');
   } catch (e) {
@@ -170,102 +170,125 @@ Future<void> _createRoute(FlutterDriver driver, File logFile, int cycle) async {
 }
 
 Future<void> _waitForAnimation(FlutterDriver driver, File logFile, int cycle) async {
-  await _log(logFile, '[$cycle] Waiting for loading animation to complete...');
+  await _log(logFile, '[$cycle] Waiting for animation to complete...');
 
   final animationStartTime = DateTime.now();
   const maxWaitTime = Duration(seconds: 120);
 
-  // Wait for loading to disappear
-  while (DateTime.now().difference(animationStartTime) < maxWaitTime) {
+  // 1. Loading text'in kaybolmasını bekle
+  bool loadingFinished = false;
+
+  while (DateTime.now().difference(animationStartTime) < maxWaitTime && !loadingFinished) {
     try {
-      // Check if loading text exists
       await driver.waitFor(
         find.text('Teaching the map to dance too...'),
         timeout: const Duration(seconds: 1),
       );
-      // Still loading, wait a bit
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Hala loading var, bekle
+      await Future.delayed(const Duration(seconds: 2));
     } catch (e) {
-      // Loading finished
-      final animationDuration = DateTime.now().difference(animationStartTime);
-      await _log(logFile, '[$cycle] ✓ Animation completed in ${animationDuration.inSeconds}s');
-      await Future.delayed(const Duration(seconds: 3)); // Stability wait
-      return;
+      // Loading text bulunamadı = kayboldu
+      loadingFinished = true;
+      await _log(logFile, '[$cycle]   Loading animation finished');
     }
   }
 
-  await _log(logFile, '[$cycle] ✗ Animation timeout after ${maxWaitTime.inSeconds}s');
+  if (!loadingFinished) {
+    await _log(logFile, '[$cycle] ✗ Animation timeout after ${maxWaitTime.inSeconds}s');
+    throw Exception('Animation timeout');
+  }
+
+  // 2. Route Map'in göründüğünü CONFIRM et
+  try {
+    await driver.waitFor(
+      find.text('📍 Route Map'),
+      timeout: const Duration(seconds: 10),
+    );
+    await _log(logFile, '[$cycle]   ✓ Route Map visible');
+  } catch (e) {
+    await _log(logFile, '[$cycle]   Warning: Route Map not found: $e');
+  }
+
+  // 3. Summary Card'ın göründüğünü CONFIRM et
+  try {
+    await driver.waitFor(
+      find.text('Total Distance'),
+      timeout: const Duration(seconds: 10),
+    );
+    await _log(logFile, '[$cycle]   ✓ Summary Card visible');
+  } catch (e) {
+    await _log(logFile, '[$cycle]   Warning: Summary Card not found: $e');
+  }
+
+  final animationDuration = DateTime.now().difference(animationStartTime);
+  await _log(logFile, '[$cycle] ✓ Animation completed in ${animationDuration.inSeconds}s');
+
+  // 4. Extra stability wait
+  await Future.delayed(const Duration(seconds: 5));
+  await _log(logFile, '[$cycle]   ✓ Stability wait completed');
 }
 
 Future<void> _scrollTest(FlutterDriver driver, File logFile, int cycle, int durationSec) async {
   await _log(logFile, '[$cycle] Starting scroll test (${durationSec}s)...');
 
+  // ✅ STRATEJİ: Summary Card'dan (haritanın ÜZERİNDEN) BÜYÜK scroll
+  // Haritayı hızla geç, Route Steps bölgesine in
+
+  try {
+    await _log(logFile, '[$cycle]   Jumping over map from Summary Card...');
+
+    // 1 KEZ BÜYÜK SCROLL - Haritayı atla
+    await driver.scroll(
+      find.text('Total Distance'),  // ← Summary Card (haritanın ÜZERİNDE)
+      0,
+      -800,  // ← BÜYÜK scroll (haritayı geç)
+      const Duration(milliseconds: 300),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    await _log(logFile, '[$cycle]   ✓ Jumped over map, now in Route Steps zone');
+
+  } catch (e) {
+    await _log(logFile, '[$cycle]   Warning: Could not jump over map: $e');
+  }
+
   final scrollStartTime = DateTime.now();
   final scrollEndTime = scrollStartTime.add(Duration(seconds: durationSec));
   int scrollCount = 0;
-
-  // İlk pozisyon: Route Steps'e scroll et (haritanın altına git)
-  try {
-    await driver.scrollUntilVisible(
-      find.byType('ListView'),
-      find.text('Route Steps'),
-      dyScroll: -300.0,
-      timeout: const Duration(seconds: 5),
-    );
-    await _log(logFile, '[$cycle]   Positioned at Route Steps (below map)');
-  } catch (e) {
-    await _log(logFile, '[$cycle]   Warning: Could not find Route Steps: $e');
-  }
 
   // Start performance timeline tracking
   final timeline = await driver.traceAction(() async {
     while (DateTime.now().isBefore(scrollEndTime)) {
       try {
-        // ✅ SCROLL DOWN: Route Steps bölgesinden Create New Route'a
+        // KÜÇÜK SCROLL'LAR - Route Steps bölgesinde kal (haritadan uzak)
+        // AŞAĞI
         await driver.scroll(
-          find.text('Route Steps'),
+          find.byType('ListView'),
           0,
           -200,
           const Duration(milliseconds: 100),
         );
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(const Duration(milliseconds: 150));
         scrollCount++;
 
-        // ✅ SCROLL UP: Create New Route'tan Route Steps'e geri
+        // YUKARI
         await driver.scroll(
-          find.text('Create New Route'),
+          find.byType('ListView'),
           0,
           200,
           const Duration(milliseconds: 100),
         );
-        await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(const Duration(milliseconds: 150));
         scrollCount++;
 
-        // Progress update every 10 seconds
-        if (scrollCount % 100 == 0) {
+        // Progress update every 20 scrolls
+        if (scrollCount % 20 == 0) {
           final elapsed = DateTime.now().difference(scrollStartTime).inSeconds;
           await _log(logFile, '[$cycle]   Scroll progress: ${elapsed}s / ${durationSec}s (${scrollCount} scrolls)');
         }
       } catch (e) {
-        // Element bulunamazsa, fallback scroll
-        try {
-          await driver.scroll(
-            find.byType('ListView'),
-            0,
-            -200,
-            const Duration(milliseconds: 100),
-          );
-          scrollCount++;
-          await driver.scroll(
-            find.byType('ListView'),
-            0,
-            200,
-            const Duration(milliseconds: 100),
-          );
-          scrollCount++;
-        } catch (fallbackError) {
-          await Future.delayed(const Duration(milliseconds: 200));
-        }
+        await _log(logFile, '[$cycle]   Warning: Scroll failed: $e');
+        await Future.delayed(const Duration(milliseconds: 200));
       }
     }
   });
@@ -285,71 +308,68 @@ Future<void> _scrollTest(FlutterDriver driver, File logFile, int cycle, int dura
   await _log(logFile, '[$cycle]   • Jank percentage: ${frameStats['jankPercentage'].toStringAsFixed(2)}%');
 }
 
-Future<void> _mapInteractionTest(FlutterDriver driver, File logFile, int cycle, int durationSec) async {
-  await _log(logFile, '[$cycle] Starting map interaction test (${durationSec}s)...');
+Future<void> _mapZoomTest(FlutterDriver driver, File logFile, int cycle, int durationSec) async {
+  await _log(logFile, '[$cycle] Starting map zoom test (${durationSec}s)...');
 
-  final mapStartTime = DateTime.now();
-  final mapEndTime = mapStartTime.add(Duration(seconds: durationSec));
-  int interactionCount = 0;
-
-  // Önce en üste çık (haritanın üstüne - summary card'a)
   try {
-    await driver.scrollUntilVisible(
-      find.byType('ListView'),
-      find.text('🗺️ Your Optimized Route'),
-      dyScroll: 300.0,
-      timeout: const Duration(seconds: 5),
-    );
-    await _log(logFile, '[$cycle]   Positioned at top (Summary Card)');
+    await _log(logFile, '[$cycle]   Scrolling back up to map...');
+
+    // ✅ Generic ListView ile YUKARI scroll
+    // Route Steps bölgesinden haritaya dön
+    for (int i = 0; i < 2; i++) {
+      await driver.scroll(
+        find.byType('ListView'),
+        0,
+        800,  // YUKARI
+        const Duration(milliseconds: 300),
+      );
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+
+    await _log(logFile, '[$cycle]   ✓ Back at map');
+
   } catch (e) {
-    await _log(logFile, '[$cycle]   Warning: Could not scroll to top: $e');
+    await _log(logFile, '[$cycle]   Warning: Could not scroll to map: $e');
   }
+
+  final zoomStartTime = DateTime.now();
+  final zoomEndTime = zoomStartTime.add(Duration(seconds: durationSec));
+  int zoomCount = 0;
 
   // Start performance timeline tracking
   final timeline = await driver.traceAction(() async {
-    while (DateTime.now().isBefore(mapEndTime)) {
+    while (DateTime.now().isBefore(zoomEndTime)) {
       try {
-        // ✅ MAP INTERACTION: Haritaya dokunmadan, butonlara tıkla
-        // "Open in Maps" butonunu bul ve tıkla
-        try {
-          final openMapsButton = find.text('Open in Maps');
-          await driver.waitFor(openMapsButton, timeout: const Duration(milliseconds: 500));
-          await driver.tap(openMapsButton);
-          await Future.delayed(const Duration(milliseconds: 300));
+        // ZOOM IN - Native gibi buton ile
+        await driver.tap(find.byValueKey('zoom_in_button'));
+        await Future.delayed(const Duration(milliseconds: 300));
+        zoomCount++;
 
-          // Browser açılır, geri dön
-          await driver.tap(find.pageBack());
-          await Future.delayed(const Duration(milliseconds: 300));
+        // ZOOM OUT - Native gibi buton ile
+        await driver.tap(find.byValueKey('zoom_out_button'));
+        await Future.delayed(const Duration(milliseconds: 300));
+        zoomCount++;
 
-          interactionCount++;
-        } catch (e) {
-          // Button bulunamazsa, sadece summary card'a tıkla (map'e DOKUNMA)
-          await driver.tap(find.text('Total Distance'));
-          await Future.delayed(const Duration(milliseconds: 300));
-          interactionCount++;
+        // Progress update every 10 zooms
+        if (zoomCount % 10 == 0) {
+          final elapsed = DateTime.now().difference(zoomStartTime).inSeconds;
+          await _log(logFile, '[$cycle]   Zoom progress: ${elapsed}s / ${durationSec}s (${zoomCount} zooms)');
         }
-
-        // Progress update every 10 seconds
-        if (interactionCount % 30 == 0) {
-          final elapsed = DateTime.now().difference(mapStartTime).inSeconds;
-          await _log(logFile, '[$cycle]   Map progress: ${elapsed}s / ${durationSec}s (${interactionCount} interactions)');
-        }
-
       } catch (e) {
-        // Interaction fail, just wait
+        await _log(logFile, '[$cycle]   Warning: Zoom button not found: $e');
         await Future.delayed(const Duration(milliseconds: 500));
       }
     }
   });
 
   // Write timeline to file
-  await _saveTimeline(timeline, 'test_results/flutter_map_timeline_cycle_$cycle.json', logFile, cycle);
+  await _saveTimeline(timeline, 'test_results/flutter_zoom_timeline_cycle_$cycle.json', logFile, cycle);
 
   // Calculate metrics
   final frameStats = _calculateFrameStats(timeline);
 
-  await _log(logFile, '[$cycle] ✓ Map interaction test completed');
-  await _log(logFile, '[$cycle]   • Total interactions: $interactionCount');
+  await _log(logFile, '[$cycle] ✓ Map zoom test completed');
+  await _log(logFile, '[$cycle]   • Total zoom operations: $zoomCount');
   await _log(logFile, '[$cycle]   • Duration: ${durationSec}s');
   await _log(logFile, '[$cycle]   • Average FPS: ${frameStats['averageFps'].toStringAsFixed(2)}');
   await _log(logFile, '[$cycle]   • Frame count: ${frameStats['totalFrames']}');
@@ -361,18 +381,100 @@ Future<void> _prepareNextCycle(FlutterDriver driver, File logFile, int cycle) as
   await _log(logFile, '[$cycle] Preparing for next cycle...');
 
   try {
-    // Scroll to Create New Route button (EN AŞAĞIDA)
-    await driver.scrollUntilVisible(
-      find.byType('ListView'),
-      find.text('Create New Route'),
-      dyScroll: -500.0,
-      timeout: const Duration(seconds: 10),
-    );
+    // ✅ 2 AŞAMALI STRATEJİ
+    // AŞAMA 1: BÜYÜK JUMP - Haritayı atla (6x800)
+    // AŞAMA 2: LOOP ile Create New Route bul (manuel scroll)
 
+    // AŞAMA 1: 6 JUMP - Haritayı atla
+    await _log(logFile, '[$cycle]   STAGE 1: Jumping over map (6x800 from Total Distance)...');
+
+    for (int i = 0; i < 6; i++) {
+      await driver.scroll(
+        find.text('Total Distance'),  // ← Summary Card (haritanın ÜZERİNDE)
+        0,
+        -800,  // ← BÜYÜK scroll
+        const Duration(milliseconds: 300),
+      );
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+
+    await _log(logFile, '[$cycle]   ✓ Escaped map zone (4800 pixels)');
+
+    // AŞAMA 2: LOOP ile Create New Route BUL
+    await _log(logFile, '[$cycle]   STAGE 2: Searching for Create New Route button...');
+
+    bool found = false;
+    int scrollAttempts = 0;
+    const maxScrollAttempts = 10;
+
+    while (!found && scrollAttempts < maxScrollAttempts) {
+      try {
+        // Create New Route var mı kontrol et
+        await driver.waitFor(
+          find.text('Create New Route'),
+          timeout: const Duration(milliseconds: 500),
+        );
+        found = true;
+        await _log(logFile, '[$cycle]   ✓ Create New Route found after $scrollAttempts additional scrolls');
+      } catch (e) {
+        // Yok, scroll et
+        await driver.scroll(
+          find.byType('ListView'),
+          0,
+          -500,
+          const Duration(milliseconds: 200),
+        );
+        scrollAttempts++;
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
+
+    if (!found) {
+      throw Exception('Create New Route not found after $maxScrollAttempts scroll attempts');
+    }
+
+    // AŞAMA 3: Tıkla
     await driver.tap(find.text('Create New Route'));
-    await Future.delayed(const Duration(seconds: 4)); // Native gibi 4 saniye bekle
+    await Future.delayed(const Duration(seconds: 4));
+    await _log(logFile, '[$cycle]   ✓ Create New Route tapped');
 
-    await _log(logFile, '[$cycle] ✓ Ready for next cycle');
+    // Re-select parameters (Native gibi)
+    await _log(logFile, '[$cycle] Re-selecting parameters...');
+
+    // Tallinn
+    final tallinnFinder = find.text('🇪🇪 Tallinn');
+    await driver.waitFor(tallinnFinder, timeout: const Duration(seconds: 10));
+    await driver.tap(tallinnFinder);
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Social Media Spots
+    await driver.scrollUntilVisible(
+      find.byType('SingleChildScrollView'),
+      find.text('Social Media Spots'),
+      dyScroll: -300.0,
+    );
+    await driver.tap(find.text('Social Media Spots'));
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Mid Range
+    await driver.scrollUntilVisible(
+      find.byType('SingleChildScrollView'),
+      find.text('Mid Range'),
+      dyScroll: -300.0,
+    );
+    await driver.tap(find.text('Mid Range'));
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Medium
+    await driver.scrollUntilVisible(
+      find.byType('SingleChildScrollView'),
+      find.text('Medium (1 day)'),
+      dyScroll: -300.0,
+    );
+    await driver.tap(find.text('Medium (1 day)'));
+    await Future.delayed(const Duration(seconds: 2));
+
+    await _log(logFile, '[$cycle] ✓ Parameters re-selected, ready for next cycle');
   } catch (e) {
     await _log(logFile, '[$cycle] ✗ Prepare next cycle failed: $e');
     rethrow;
@@ -394,7 +496,7 @@ Future<void> _saveTimeline(Timeline timeline, String filepath, File logFile, int
         'category': event.category,
         'phase': event.phase,
         'timestampMicros': event.timestampMicros,
-        'duration': event.duration,
+        'duration': event.duration?.inMicroseconds,
         'arguments': event.arguments,
       };
     }).toList() ?? [];
