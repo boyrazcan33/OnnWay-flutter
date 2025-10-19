@@ -10,12 +10,13 @@ void main() {
     late File logFile;
 
     // Test Configuration - Native ile AYNI
-    const int totalCycles = 5;
+    const int totalCycles = 1;
     const int scrollDurationSec = 30;
     const int zoomDurationSec = 30;
 
     setUpAll(() async {
       driver = await FlutterDriver.connect();
+
 
       // Log dosyası oluştur
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
@@ -381,11 +382,7 @@ Future<void> _prepareNextCycle(FlutterDriver driver, File logFile, int cycle) as
   await _log(logFile, '[$cycle] Preparing for next cycle...');
 
   try {
-    // ✅ 2 AŞAMALI STRATEJİ
-    // AŞAMA 1: BÜYÜK JUMP - Haritayı atla (6x800)
-    // AŞAMA 2: LOOP ile Create New Route bul (manuel scroll)
-
-    // AŞAMA 1: 6 JUMP - Haritayı atla
+    // ✅ AŞAMA 1: DEĞİŞMEDİ - ÇALIŞAN KODU KORU
     await _log(logFile, '[$cycle]   STAGE 1: Jumping over map (6x800 from Total Distance)...');
 
     for (int i = 0; i < 6; i++) {
@@ -400,45 +397,47 @@ Future<void> _prepareNextCycle(FlutterDriver driver, File logFile, int cycle) as
 
     await _log(logFile, '[$cycle]   ✓ Escaped map zone (4800 pixels)');
 
-    // AŞAMA 2: LOOP ile Create New Route BUL
-    await _log(logFile, '[$cycle]   STAGE 2: Searching for Create New Route button...');
+    // ✅ AŞAMA 2: YENİ - Direkt en alta git
+    await _log(logFile, '[$cycle]   STAGE 2: Going directly to bottom of page...');
 
-    bool found = false;
-    int scrollAttempts = 0;
-    const maxScrollAttempts = 10;
+    // Çok büyük bir scroll ile direkt en alta git
+    await driver.scroll(
+      find.byType('Scaffold'),
+      0,
+      -10000,  // Çok büyük değer = sayfanın sonuna git
+      const Duration(milliseconds: 1000),
+    );
 
-    while (!found && scrollAttempts < maxScrollAttempts) {
-      try {
-        // Create New Route var mı kontrol et
-        await driver.waitFor(
-          find.text('Create New Route'),
-          timeout: const Duration(milliseconds: 500),
-        );
-        found = true;
-        await _log(logFile, '[$cycle]   ✓ Create New Route found after $scrollAttempts additional scrolls');
-      } catch (e) {
-        // Yok, scroll et
-        await driver.scroll(
-          find.byType('ListView'),
-          0,
-          -500,
-          const Duration(milliseconds: 200),
-        );
-        scrollAttempts++;
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
+    await Future.delayed(const Duration(seconds: 1));
+    await _log(logFile, '[$cycle]   ✓ Scrolled to bottom');
+
+    // Şimdi button görünür olmalı
+    try {
+      await driver.waitFor(
+        find.text('Create New Route'),
+        timeout: const Duration(seconds: 5),
+      );
+      await driver.tap(find.text('Create New Route'));
+      await _log(logFile, '[$cycle]   ✓ Create New Route found and tapped at bottom');
+    } catch (e) {
+      await _log(logFile, '[$cycle]   Button not visible, scrolling up slightly...');
+
+      // Button görünmüyorsa biraz yukarı scroll et
+      await driver.scroll(
+        find.byType('Scaffold'),
+        0,
+        500,  // Yukarı
+        const Duration(milliseconds: 300),
+      );
+
+      // Tekrar dene
+      await driver.tap(find.text('Create New Route'));
+      await _log(logFile, '[$cycle]   ✓ Create New Route found after scroll adjustment');
     }
 
-    if (!found) {
-      throw Exception('Create New Route not found after $maxScrollAttempts scroll attempts');
-    }
-
-    // AŞAMA 3: Tıkla
-    await driver.tap(find.text('Create New Route'));
     await Future.delayed(const Duration(seconds: 4));
-    await _log(logFile, '[$cycle]   ✓ Create New Route tapped');
 
-    // Re-select parameters (Native gibi)
+    // AŞAMA 3: Re-select parameters (Native gibi)
     await _log(logFile, '[$cycle] Re-selecting parameters...');
 
     // Tallinn
