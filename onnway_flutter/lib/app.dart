@@ -8,6 +8,7 @@ import 'providers/form_provider.dart';
 import 'ui/screens/city_selection_screen.dart';
 import 'ui/screens/route_display_screen.dart';
 import 'ui/theme/colors.dart';
+import 'ui/components/dancing_tourist.dart';
 
 class OnnWayApp extends ConsumerWidget {
   const OnnWayApp({super.key});
@@ -153,22 +154,14 @@ class OnnWayApp extends ConsumerWidget {
                       isLoading: false,
                     );
                   },
-                  loading: () => Center(
+                  loading: () => const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.asset(
-                          'assets/images/mj_moonwalk.png',
-                          width: 200,
-                          height: 200,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const CircularProgressIndicator(
-                              color: whiteColor,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
+                        // ✅ DÜZELTME: DancingTourist widget'ını kullan
+                        DancingTourist(),
+                        SizedBox(height: 24),
+                        Text(
                           'Creating your route...',
                           style: TextStyle(
                             color: whiteColor,
@@ -176,8 +169,8 @@ class OnnWayApp extends ConsumerWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
+                        SizedBox(height: 8),
+                        Text(
                           'Teaching the map to dance too...',
                           style: TextStyle(
                             color: whiteColor,

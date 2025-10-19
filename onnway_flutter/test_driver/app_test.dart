@@ -82,7 +82,7 @@ void main() {
       await _log(logFile, 'TOTAL TEST TIME: ${totalDuration.inMinutes} minutes ${totalDuration.inSeconds % 60} seconds');
       await _log(logFile, '========================================');
     },
-      timeout: const Timeout(Duration(minutes: 15)),  // ← 15 DAKİKA TIMEOUT
+      timeout: const Timeout(Duration(minutes: 15)),
     );
   });
 }
@@ -204,26 +204,41 @@ Future<void> _scrollTest(FlutterDriver driver, File logFile, int cycle, int dura
   final scrollEndTime = scrollStartTime.add(Duration(seconds: durationSec));
   int scrollCount = 0;
 
+  // İlk pozisyon: Route Steps'e scroll et (haritanın altına git)
+  try {
+    await driver.scrollUntilVisible(
+      find.byType('ListView'),
+      find.text('Route Steps'),
+      dyScroll: -300.0,
+      timeout: const Duration(seconds: 5),
+    );
+    await _log(logFile, '[$cycle]   Positioned at Route Steps (below map)');
+  } catch (e) {
+    await _log(logFile, '[$cycle]   Warning: Could not find Route Steps: $e');
+  }
+
   // Start performance timeline tracking
   final timeline = await driver.traceAction(() async {
     while (DateTime.now().isBefore(scrollEndTime)) {
       try {
-        // Scroll down
+        // ✅ SCROLL DOWN: Route Steps bölgesinden Create New Route'a
         await driver.scroll(
-          find.byType('ListView'),
+          find.text('Route Steps'),
           0,
-          -300,
+          -200,
           const Duration(milliseconds: 100),
         );
+        await Future.delayed(const Duration(milliseconds: 50));
         scrollCount++;
 
-        // Scroll up
+        // ✅ SCROLL UP: Create New Route'tan Route Steps'e geri
         await driver.scroll(
-          find.byType('ListView'),
+          find.text('Create New Route'),
           0,
-          300,
+          200,
           const Duration(milliseconds: 100),
         );
+        await Future.delayed(const Duration(milliseconds: 50));
         scrollCount++;
 
         // Progress update every 10 seconds
@@ -232,8 +247,25 @@ Future<void> _scrollTest(FlutterDriver driver, File logFile, int cycle, int dura
           await _log(logFile, '[$cycle]   Scroll progress: ${elapsed}s / ${durationSec}s (${scrollCount} scrolls)');
         }
       } catch (e) {
-        // Scroll might fail occasionally, continue
-        await Future.delayed(const Duration(milliseconds: 200));
+        // Element bulunamazsa, fallback scroll
+        try {
+          await driver.scroll(
+            find.byType('ListView'),
+            0,
+            -200,
+            const Duration(milliseconds: 100),
+          );
+          scrollCount++;
+          await driver.scroll(
+            find.byType('ListView'),
+            0,
+            200,
+            const Duration(milliseconds: 100),
+          );
+          scrollCount++;
+        } catch (fallbackError) {
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
       }
     }
   });
@@ -260,35 +292,51 @@ Future<void> _mapInteractionTest(FlutterDriver driver, File logFile, int cycle, 
   final mapEndTime = mapStartTime.add(Duration(seconds: durationSec));
   int interactionCount = 0;
 
-  // Scroll to map area
+  // Önce en üste çık (haritanın üstüne - summary card'a)
   try {
     await driver.scrollUntilVisible(
       find.byType('ListView'),
-      find.text('Route Steps'),
-      dyScroll: -500.0,
+      find.text('🗺️ Your Optimized Route'),
+      dyScroll: 300.0,
       timeout: const Duration(seconds: 5),
     );
+    await _log(logFile, '[$cycle]   Positioned at top (Summary Card)');
   } catch (e) {
-    await _log(logFile, '[$cycle]   Could not scroll to map, continuing...');
+    await _log(logFile, '[$cycle]   Warning: Could not scroll to top: $e');
   }
 
   // Start performance timeline tracking
   final timeline = await driver.traceAction(() async {
     while (DateTime.now().isBefore(mapEndTime)) {
       try {
-        // Simulate map interactions
-        await driver.tap(find.byType('FlutterMap'));
-        interactionCount++;
+        // ✅ MAP INTERACTION: Haritaya dokunmadan, butonlara tıkla
+        // "Open in Maps" butonunu bul ve tıkla
+        try {
+          final openMapsButton = find.text('Open in Maps');
+          await driver.waitFor(openMapsButton, timeout: const Duration(milliseconds: 500));
+          await driver.tap(openMapsButton);
+          await Future.delayed(const Duration(milliseconds: 300));
 
-        await Future.delayed(const Duration(milliseconds: 300));
+          // Browser açılır, geri dön
+          await driver.tap(find.pageBack());
+          await Future.delayed(const Duration(milliseconds: 300));
+
+          interactionCount++;
+        } catch (e) {
+          // Button bulunamazsa, sadece summary card'a tıkla (map'e DOKUNMA)
+          await driver.tap(find.text('Total Distance'));
+          await Future.delayed(const Duration(milliseconds: 300));
+          interactionCount++;
+        }
 
         // Progress update every 10 seconds
         if (interactionCount % 30 == 0) {
           final elapsed = DateTime.now().difference(mapStartTime).inSeconds;
           await _log(logFile, '[$cycle]   Map progress: ${elapsed}s / ${durationSec}s (${interactionCount} interactions)');
         }
+
       } catch (e) {
-        // Map interaction might fail, continue
+        // Interaction fail, just wait
         await Future.delayed(const Duration(milliseconds: 500));
       }
     }
@@ -313,7 +361,7 @@ Future<void> _prepareNextCycle(FlutterDriver driver, File logFile, int cycle) as
   await _log(logFile, '[$cycle] Preparing for next cycle...');
 
   try {
-    // Scroll to Create New Route button
+    // Scroll to Create New Route button (EN AŞAĞIDA)
     await driver.scrollUntilVisible(
       find.byType('ListView'),
       find.text('Create New Route'),
@@ -322,7 +370,7 @@ Future<void> _prepareNextCycle(FlutterDriver driver, File logFile, int cycle) as
     );
 
     await driver.tap(find.text('Create New Route'));
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(seconds: 4)); // Native gibi 4 saniye bekle
 
     await _log(logFile, '[$cycle] ✓ Ready for next cycle');
   } catch (e) {

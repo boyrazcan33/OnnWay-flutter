@@ -79,6 +79,22 @@ class _RouteMapState extends State<RouteMap> {
     }
   }
 
+  void _zoomIn() {
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(
+      _mapController.camera.center,
+      currentZoom + 1,
+    );
+  }
+
+  void _zoomOut() {
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(
+      _mapController.camera.center,
+      currentZoom - 1,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Build route points
@@ -94,119 +110,157 @@ class _RouteMapState extends State<RouteMap> {
     ];
 
     return Column(
-        children: [
-    // Header
-    Padding(
-    padding: const EdgeInsets.all(16),
-    child: Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-    Text(
-    '📍 Route Map',
-    style: Theme.of(context).textTheme.headlineMedium,
-    ),
-    ElevatedButton(
-    onPressed: _openInMaps,
-    child: const Text('Open in Maps'),
-    ),
-    ],
-    ),
-    ),
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '📍 Route Map',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              ElevatedButton(
+                onPressed: _openInMaps,
+                child: const Text('Open in Maps'),
+              ),
+            ],
+          ),
+        ),
 
-    // Map
-    Card(
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    elevation: 4,
-    child: SizedBox(
-    height: 400,
-    child: ClipRRect(
-    borderRadius: BorderRadius.circular(12),
-    child: FlutterMap(
-    mapController: _mapController,
-    options: MapOptions(
-    initialCenter: widget.userLocation,
-    initialZoom: 13,
-    ),
-    children: [
-    // OSM Tile Layer
-    TileLayer(
-    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    userAgentPackageName: 'com.onnway.flutter',
-    ),
+        // Map with Zoom Buttons
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          elevation: 4,
+          child: SizedBox(
+            height: 400,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                children: [
+                  // FlutterMap
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: widget.userLocation,
+                      initialZoom: 13,
+                    ),
+                    children: [
+                      // OSM Tile Layer
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.onnway.flutter',
+                      ),
 
-    // Polyline (route)
-    PolylineLayer(
-    polylines: [
-    Polyline(
-    points: routePoints,
-    color: Colors.blue,
-    strokeWidth: 4,
-    ),
-    ],
-    ),
+                      // Polyline (route)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: routePoints,
+                            color: Colors.blue,
+                            strokeWidth: 4,
+                          ),
+                        ],
+                      ),
 
-    // Markers
-    MarkerLayer(
-    markers: [
-    // User location
-    Marker(
-    point: widget.userLocation,
-      width: 40,
-      height: 40,
-      child: const Icon(
-        Icons.person_pin_circle,
-        color: Colors.red,
-        size: 40,
-      ),
-    ),
+                      // Markers
+                      MarkerLayer(
+                        markers: [
+                          // User location
+                          Marker(
+                            point: widget.userLocation,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.person_pin_circle,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                          ),
 
-      // Route stops
-      ...widget.route.map((stop) {
-        final attraction = widget.attractions.firstWhere(
-              (a) => a.name == stop.name,
-          orElse: () => widget.attractions.first,
-        );
+                          // Route stops
+                          ...widget.route.map((stop) {
+                            final attraction = widget.attractions.firstWhere(
+                                  (a) => a.name == stop.name,
+                              orElse: () => widget.attractions.first,
+                            );
 
-        return Marker(
-          point: LatLng(attraction.latitude, attraction.longitude),
-          width: 40,
-          height: 40,
-          child: GestureDetector(
-            onTap: () => widget.onAttractionClick?.call(stop),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Theme.of(context).primaryColor,
-                      width: 2,
+                            return Marker(
+                              point: LatLng(attraction.latitude, attraction.longitude),
+                              width: 40,
+                              height: 40,
+                              child: GestureDetector(
+                                onTap: () => widget.onAttractionClick?.call(stop),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Theme.of(context).primaryColor,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '${stop.order}',
+                                        style: TextStyle(
+                                          color: Theme.of(context).primaryColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  // ✅ ZOOM BUTTONS (Native Google Maps gibi)
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: Column(
+                      children: [
+                        // Zoom In Button
+                        FloatingActionButton(
+                          key: const Key('zoom_in_button'),
+                          heroTag: 'zoom_in',
+                          mini: true,
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                          onPressed: _zoomIn,
+                          child: const Icon(Icons.add),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // Zoom Out Button
+                        FloatingActionButton(
+                          key: const Key('zoom_out_button'),
+                          heroTag: 'zoom_out',
+                          mini: true,
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                          onPressed: _zoomOut,
+                          child: const Icon(Icons.remove),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Text(
-                    '${stop.order}',
-                    style: TextStyle(
-                      color: Theme.of(context).primaryColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        );
-      }),
-    ],
-    ),
-    ],
-    ),
-    ),
-    ),
-    ),
-        ],
+        ),
+      ],
     );
   }
 }
